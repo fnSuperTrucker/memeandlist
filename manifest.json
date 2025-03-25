@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Chat Links Collector",
+  "version": "1.1",
+  "description": "Collects YouTube, Shorts, Twitter/X, image, and video links from chat with previews",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "declarativeContent",
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.rumble.com/*", "*://*.odysee.com/*", "*://*.pilled.net/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_title": "Open Links List"
+  }
+}
