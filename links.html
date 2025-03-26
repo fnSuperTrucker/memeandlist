@@ -3,32 +3,32 @@
 <head>
   <style>
     html, body {
-      height: 100vh; /* Full viewport height */
-      margin: 0; /* Remove default margin */
+      height: 100vh;
+      margin: 0;
       padding: 10px;
       font-family: Arial;
       background-color: #121212;
       color: #ffffff;
-      box-sizing: border-box; /* Ensure padding doesn't add to height */
-      width: 1200px; /* Keep the fixed width */
-      overflow-y: auto; /* Allow scrolling if content overflows viewport */
+      box-sizing: border-box;
+      width: 1200px;
+      overflow-y: auto;
     }
     body {
       display: flex;
-      flex-direction: column; /* Stack children vertically */
-      height: calc(100vh - 20px); /* Account for 10px top + 10px bottom padding */
+      flex-direction: column;
+      height: calc(100vh - 20px);
     }
     .container {
       display: flex;
       justify-content: space-between;
-      flex: 1; /* Take up remaining space after the button */
-      min-height: 0; /* Allow the container to shrink if needed */
+      flex: 1;
+      min-height: 0;
     }
     .column {
       flex: 1;
       margin: 0 5px;
-      overflow-y: auto; /* Add scrollbar if content overflows */
-      min-height: 300px; /* Ensure columns aren't too short */
+      overflow-y: auto;
+      min-height: 300px;
     }
     h3 {
       margin: 0 0 10px 0;
@@ -42,35 +42,34 @@
     a {
       color: #8ab4f8;
       text-decoration: none;
-      display: inline-block; /* Ensure the <a> tag wraps the content properly */
+      display: inline-block;
     }
     a:hover {
       text-decoration: underline;
     }
     .video-preview-container {
-      width: 100px; /* Fixed width */
-      height: 100px; /* Fixed height */
+      width: 100px;
+      height: 100px;
       position: relative;
       display: inline-block;
-      background-color: #000; /* Black background while loading */
+      background-color: #000;
     }
     img.preview, video.preview {
-      width: 100px; /* Fixed width */
-      height: 100px; /* Fixed height */
-      object-fit: cover; /* Ensure the content fits without changing aspect ratio */
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
       margin-top: 4px;
       border-radius: 4px;
-      cursor: pointer; /* Indicate it's clickable */
-      transition: opacity 0.3s ease, box-shadow 0.3s ease; /* Smooth transition for hover effects */
+      cursor: pointer;
+      transition: opacity 0.3s ease, box-shadow 0.3s ease;
     }
     img.preview:hover, video.preview:hover {
-      opacity: 0.8; /* Slight opacity change on hover */
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.5); /* Add a glow effect on hover */
+      opacity: 0.8;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     }
     video.preview {
-      background-color: #000; /* Ensure background is black to avoid dark rendering */
+      background-color: #000;
     }
-    /* Hide all video controls, including the loading spinner */
     video.preview::-webkit-media-controls,
     video.preview::-webkit-media-controls-start-playback-button,
     video.preview::-webkit-media-controls-play-button,
@@ -86,34 +85,39 @@
       -webkit-appearance: none !important;
       visibility: hidden !important;
     }
-    /* Additional rules to hide loading spinners in other browsers */
     video.preview {
-      -moz-appearance: none !important; /* Firefox */
-      appearance: none !important; /* Standard */
+      -moz-appearance: none !important;
+      appearance: none !important;
     }
-    /* Remove bullet points for all lists */
     .container ul {
-      list-style-type: none; /* Remove bullet points */
-      padding-left: 0; /* Remove default padding */
-      /* Removed height: 100% to prevent premature scrollbars */
+      list-style-type: none;
+      padding-left: 0;
     }
     #clearButton {
-      background-color: #dc3545;
-      color: white;
+      background-color: #808080; /* Gray */
+      color: #ffffff; /* White text for contrast */
       border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
+      padding: 6px 12px; /* Smaller padding */
+      border-radius: 2px; /* Minimal rounding */
       cursor: pointer;
-      font-size: 14px;
+      font-size: 12px; /* Smaller font */
       margin-bottom: 15px;
+      width: auto; /* Prevent stretching */
+      display: inline-block; /* Compact button shape */
+      text-align: center;
     }
     #clearButton:hover {
-      background-color: #bb2d3b;
+      background-color: #666666; /* Darker gray on hover */
+    }
+    .button-container {
+      text-align: center; /* Center the button */
     }
   </style>
 </head>
 <body>
-  <button id="clearButton">Clear All Links</button>
+  <div class="button-container">
+    <button id="clearButton">Clear All Links</button>
+  </div>
   <div class="container">
     <div class="column">
       <h3>YouTube Videos</h3>

@@ -9,8 +9,8 @@ const urlRegex = /https?:\/\/[^\s]+/gi;
 // Regex to detect user profile links (but not channel links)
 const userProfileRegex = /https?:\/\/(?:www\.)?(?:rumble\.com\/user\/|odysee\.com\/@|pilled\.net\/user\/)[^\s]+/i;
 
-// Regex to detect static page links we want to ignore (e.g., Rumble channel or premium links)
-const staticPageLinkRegex = /https?:\/\/(?:www\.)?rumble\.com\/(c\/|premium)[^\s]*/i;
+// Regex to detect static page links we want to ignore
+const staticPageLinkRegex = /https?:\/\/(?:www\.)?(?:rumble\.com\/(c\/|premium)|pilled\.net\/(profile|login|signup))[^\s]*/i;
 
 function isImageUrl(url) {
   return url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ||
@@ -25,17 +25,13 @@ function isVideoUrl(url) {
 
 function isUserProfile(url) {
   const isProfile = userProfileRegex.test(url);
-  if (isProfile) {
-    console.log(`Skipping user profile: ${url}`);
-  }
+  if (isProfile) console.log(`Skipping user profile: ${url}`);
   return isProfile;
 }
 
 function isStaticPageLink(url) {
   const isStatic = staticPageLinkRegex.test(url);
-  if (isStatic) {
-    console.log(`Skipping static page link: ${url}`);
-  }
+  if (isStatic) console.log(`Skipping static page link: ${url}`);
   return isStatic;
 }
 
@@ -48,10 +44,8 @@ function createImagePreview(url) {
   img.style.marginTop = '4px';
   img.style.borderRadius = '4px';
   img.onload = () => {
-    requestAnimationFrame(() => {
-      const chatContainer = document.getElementById('chat-history-list') || document.querySelector('.chat-container');
-      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-    });
+    console.log('Image preview loaded:', url);
+    scrollChatToBottom();
   };
   return img;
 }
@@ -68,23 +62,55 @@ function createVideoPreview(url) {
   video.muted = true;
   video.autoplay = true;
   video.onloadedmetadata = () => {
-    requestAnimationFrame(() => {
-      const chatContainer = document.getElementById('chat-history-list') || document.querySelector('.chat-container');
-      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-    });
+    console.log('Video preview loaded:', url);
+    scrollChatToBottom();
   };
   return video;
 }
 
+function scrollChatToBottom() {
+  setTimeout(() => {
+    // Try specific selectors for Rumble's chat container
+    let chatContainer = document.querySelector(
+      '#chat-history-list, #js-chat--height, .chat-history-list, .chat-container, #chat-messages, [class*="chat"], [class*="messages"]'
+    );
+
+    // If not found, try to find a scrollable parent of the preview
+    if (!chatContainer) {
+      const previews = document.querySelectorAll('img[src], video[src]');
+      if (previews.length > 0) {
+        let parent = previews[previews.length - 1].parentElement;
+        while (parent && parent !== document.body) {
+          if (parent.scrollHeight > parent.clientHeight) {
+            chatContainer = parent;
+            break;
+          }
+          parent = parent.parentElement;
+        }
+      }
+    }
+
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      console.log('Scrolled chat to bottom:', chatContainer.tagName, chatContainer.id || chatContainer.className);
+    } else {
+      console.log('Chat container for scrolling not found - tried specific selectors and parent traversal');
+    }
+  }, 100); // Slight delay to ensure DOM updates
+}
+
 let isActive = false;
-let initialLoadComplete = false; // Flag to skip initial static content
+let initialLoadComplete = false;
 
 function isContextValid() {
   return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id && isActive;
 }
 
 function storeLinks(youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks) {
-  if (!isContextValid()) return;
+  if (!isContextValid()) {
+    console.log('Context invalid, skipping storage');
+    return;
+  }
 
   console.log('Storing links:', { youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks });
 
@@ -105,29 +131,23 @@ function storeLinks(youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLi
       imageLinks: newImages, videoLinks: newVideos, otherLinks: newOther
     }, () => {
       if (chrome.runtime.lastError) console.error('Storage error:', chrome.runtime.lastError);
+      else console.log('Links stored successfully');
     });
   });
 }
 
 function watchChat() {
-  const chatContainer = document.getElementById('chat-history-list') ||
-                        document.getElementById('js-chat--height') ||
-                        document.querySelector('.chat-history-list, .chat-container');
+  const target = document.body;
 
-  if (!chatContainer) {
-    console.log('Chat container not found, retrying in 1s...');
-    setTimeout(watchChat, 1000);
-    return;
-  }
-
-  console.log('Found chat container:', chatContainer.id || chatContainer.className);
+  console.log('Observing chat on:', target.tagName);
 
   const observer = new MutationObserver((mutations) => {
-    // Skip processing during initial load to avoid static content
     if (!initialLoadComplete) {
       console.log('Skipping mutation during initial load');
       return;
     }
+
+    console.log('Mutation detected, processing', mutations.length, 'changes');
 
     let youtubeLinks = [];
     let shortsLinks = [];
@@ -136,14 +156,53 @@ function watchChat() {
     let videoLinks = [];
     let otherLinks = [];
 
+    const isPilledChat = window.location.hostname.includes('pilled.net');
+    console.log(`Is Pilled.net chat: ${isPilledChat}`);
+
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-        // Check for links in <a> tags or elements with href
-        const links = [...node.querySelectorAll('a, [href]')];
+        const spans = node.matches('span.ng-star-inserted, span.chat-message') 
+          ? [node] 
+          : [...node.querySelectorAll('span.ng-star-inserted, span.chat-message')];
+
+        spans.forEach(span => {
+          if (span.dataset?.processed) return;
+
+          const text = span.textContent || '';
+          const allLinks = [...text.matchAll(urlRegex)].map(m => m[0]).filter(link => link !== window.location.href);
+
+          if (allLinks.length > 0) {
+            console.log(`Found ${allLinks.length} links in span:`, allLinks);
+          }
+
+          allLinks.forEach(url => {
+            if (isUserProfile(url) || isStaticPageLink(url)) return;
+
+            if (isPilledChat) {
+              categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+            } else {
+              if (isImageUrl(url) && !span.querySelector('img')) {
+                const preview = createImagePreview(url);
+                span.appendChild(preview);
+                imageLinks.push(url);
+              } else if (isVideoUrl(url) && !span.querySelector('video')) {
+                const preview = createVideoPreview(url);
+                span.appendChild(preview);
+                videoLinks.push(url);
+              } else {
+                categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+              }
+            }
+          });
+
+          span.dataset.processed = true;
+        });
+
+        const links = [...node.querySelectorAll('a[href], [href]')];
         links.forEach(link => {
-          const url = link.href || link.getAttribute('data-url');
+          const url = link.href || link.getAttribute('href');
           if (!url || link.dataset?.processed) return;
 
           console.log(`Found link in <a> tag: ${url}`);
@@ -153,70 +212,95 @@ function watchChat() {
             return;
           }
 
-          if (isImageUrl(url)) {
-            link.replaceWith(createImagePreview(url));
-            imageLinks.push(url);
-          } else if (isVideoUrl(url)) {
-            link.replaceWith(createVideoPreview(url));
-            videoLinks.push(url);
-          } else if (shortsRegex.test(url)) {
-            shortsLinks.push(url);
-          } else if (youtubeRegex.test(url)) {
-            youtubeLinks.push(url);
-          } else if (twitterRegex.test(url)) {
-            twitterLinks.push(url);
+          if (isPilledChat) {
+            categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
           } else {
-            otherLinks.push(url);
+            if (isImageUrl(url)) {
+              link.replaceWith(createImagePreview(url));
+              imageLinks.push(url);
+            } else if (isVideoUrl(url)) {
+              link.replaceWith(createVideoPreview(url));
+              videoLinks.push(url);
+            } else {
+              categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+            }
           }
 
           link.dataset.processed = true;
-        });
-
-        // Scan text content for links not wrapped in <a> tags
-        const textNodes = [];
-        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null, false);
-        let textNode;
-        while (textNode = walker.nextNode()) {
-          textNodes.push(textNode);
-        }
-
-        textNodes.forEach(textNode => {
-          const text = textNode.textContent || '';
-          const allLinks = [...text.matchAll(urlRegex)].map(m => m[0]).filter(link => link !== window.location.href);
-          allLinks.forEach(url => {
-            console.log(`Found link in text: ${url}`);
-            if (isUserProfile(url) || isStaticPageLink(url)) return;
-
-            if (isImageUrl(url)) {
-              if (!imageLinks.includes(url)) imageLinks.push(url);
-            } else if (isVideoUrl(url)) {
-              if (!videoLinks.includes(url)) videoLinks.push(url);
-            } else if (shortsRegex.test(url)) {
-              if (!shortsLinks.includes(url)) shortsLinks.push(url);
-            } else if (youtubeRegex.test(url)) {
-              if (!youtubeLinks.includes(url)) youtubeLinks.push(url);
-            } else if (twitterRegex.test(url)) {
-              if (!twitterLinks.includes(url)) twitterLinks.push(url);
-            } else if (!otherLinks.includes(url)) {
-              otherLinks.push(url);
-            }
-          });
         });
       });
     });
 
     if (youtubeLinks.length || shortsLinks.length || twitterLinks.length || imageLinks.length || videoLinks.length || otherLinks.length) {
+      console.log('Collected links:', { youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks });
       storeLinks(youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+    } else {
+      console.log('No new links found in this mutation');
     }
   });
 
-  observer.observe(chatContainer, { childList: true, subtree: true });
+  observer.observe(target, { childList: true, subtree: true });
+  console.log('MutationObserver started on body');
 
-  // Mark initial load as complete after a short delay to skip static content
   setTimeout(() => {
     console.log('Initial load complete, starting to process mutations');
     initialLoadComplete = true;
-  }, 2000); // Adjust delay if needed
+    processInitialChat();
+  }, 2000);
+}
+
+function processInitialChat() {
+  const spans = document.querySelectorAll('span.ng-star-inserted:not([data-processed]), span.chat-message:not([data-processed])');
+  console.log('Processing initial', spans.length, 'spans');
+
+  let youtubeLinks = [];
+  let shortsLinks = [];
+  let twitterLinks = [];
+  let imageLinks = [];
+  let videoLinks = [];
+  let otherLinks = [];
+
+  const isPilledChat = window.location.hostname.includes('pilled.net');
+
+  spans.forEach(span => {
+    const text = span.textContent || '';
+    const allLinks = [...text.matchAll(urlRegex)].map(m => m[0]).filter(link => link !== window.location.href);
+
+    allLinks.forEach(url => {
+      if (isUserProfile(url) || isStaticPageLink(url)) return;
+
+      if (isPilledChat) {
+        categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+      } else {
+        if (isImageUrl(url) && !span.querySelector('img')) {
+          const preview = createImagePreview(url);
+          span.appendChild(preview);
+          imageLinks.push(url);
+        } else if (isVideoUrl(url) && !span.querySelector('video')) {
+          const preview = createVideoPreview(url);
+          span.appendChild(preview);
+          videoLinks.push(url);
+        } else {
+          categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+        }
+      }
+    });
+
+    span.dataset.processed = true;
+  });
+
+  if (youtubeLinks.length || shortsLinks.length || twitterLinks.length || imageLinks.length || videoLinks.length || otherLinks.length) {
+    storeLinks(youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
+  }
+}
+
+function categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks) {
+  if (shortsRegex.test(url) && !shortsLinks.includes(url)) shortsLinks.push(url);
+  else if (youtubeRegex.test(url) && !youtubeLinks.includes(url)) youtubeLinks.push(url);
+  else if (twitterRegex.test(url) && !twitterLinks.includes(url)) twitterLinks.push(url);
+  else if (isImageUrl(url) && !imageLinks.includes(url)) imageLinks.push(url);
+  else if (isVideoUrl(url) && !videoLinks.includes(url)) videoLinks.push(url);
+  else if (!otherLinks.includes(url)) otherLinks.push(url);
 }
 
 window.addEventListener('load', () => {
