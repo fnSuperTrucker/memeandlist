@@ -35,6 +35,21 @@ function isStaticPageLink(url) {
   return isStatic;
 }
 
+function scrollToBottom() {
+  setTimeout(() => {
+    const chatContainer = document.getElementById('chat-history-list');
+    if (chatContainer) {
+      console.log('Chat container found, scrolling to bottom. Height:', chatContainer.scrollHeight);
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    } else {
+      console.log('Chat container (#chat-history-list) not found for scrolling');
+    }
+  }, 500);
+}
+
 function createImagePreview(url) {
   const img = document.createElement('img');
   img.src = url;
@@ -44,18 +59,6 @@ function createImagePreview(url) {
   img.style.marginTop = '4px';
   img.style.borderRadius = '4px';
   
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      const chatContainer = document.getElementById('chat-history-list');
-      if (chatContainer) {
-        chatContainer.scrollTo({
-          top: chatContainer.scrollHeight,
-          behavior: 'smooth'
-        });
-      }
-    }, 100);
-  };
-
   img.onload = () => {
     console.log('Image preview loaded:', url);
     scrollToBottom();
@@ -81,18 +84,6 @@ function createVideoPreview(url) {
   video.muted = true;
   video.autoplay = true;
   
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      const chatContainer = document.getElementById('chat-history-list');
-      if (chatContainer) {
-        chatContainer.scrollTo({
-          top: chatContainer.scrollHeight,
-          behavior: 'smooth'
-        });
-      }
-    }, 100);
-  };
-
   video.onloadedmetadata = () => {
     console.log('Video preview loaded:', url);
     scrollToBottom();
@@ -110,7 +101,9 @@ let isActive = false;
 let initialLoadComplete = false;
 
 function isContextValid() {
-  return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id && isActive;
+  const valid = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id && isActive;
+  console.log('Context valid:', valid);
+  return valid;
 }
 
 function storeLinks(youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks) {
@@ -178,21 +171,32 @@ function watchChat() {
     let otherLinks = [];
 
     mutations.forEach((mutation) => {
+      console.log('Processing mutation:', mutation);
       mutation.addedNodes.forEach((node) => {
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          console.log('Skipping non-element node:', node);
+          return;
+        }
 
         const spans = node.matches('span.ng-star-inserted, span.chat-message') 
           ? [node] 
           : [...node.querySelectorAll('span.ng-star-inserted, span.chat-message')];
 
+        console.log('Found', spans.length, 'spans in mutation');
+
         spans.forEach(span => {
-          if (span.dataset?.processed) return;
+          if (span.dataset?.processed) {
+            console.log('Span already processed, skipping:', span.textContent);
+            return;
+          }
 
           const text = span.textContent || '';
           const allLinks = [...text.matchAll(urlRegex)].map(m => m[0]).filter(link => link !== window.location.href);
 
           if (allLinks.length > 0) {
             console.log(`Found ${allLinks.length} links in span:`, allLinks);
+          } else {
+            console.log('No links found in span:', text);
           }
 
           allLinks.forEach(url => {
@@ -217,9 +221,13 @@ function watchChat() {
         });
 
         const links = [...node.querySelectorAll('a[href], [href]')];
+        console.log('Found', links.length, 'existing <a> tags in mutation');
         links.forEach(link => {
           const url = link.href || link.getAttribute('href');
-          if (!url || link.dataset?.processed) return;
+          if (!url || link.dataset?.processed) {
+            console.log('Skipping processed or invalid <a> tag:', url);
+            return;
+          }
 
           console.log(`Found link in <a> tag: ${url}`);
 
@@ -276,6 +284,8 @@ function processInitialChat() {
 
     if (allLinks.length > 0) {
       console.log(`Initial scan found ${allLinks.length} links:`, allLinks);
+    } else {
+      console.log('No links in initial span:', text);
     }
 
     allLinks.forEach(url => {
