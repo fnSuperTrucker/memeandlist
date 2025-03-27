@@ -3,9 +3,7 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.declarativeContent.onPageChanged.addRules([
       {
         conditions: [
-          new chrome.declarativeContent.PageStateMatcher({ pageUrl: { hostContains: 'rumble.com' } }),
-          new chrome.declarativeContent.PageStateMatcher({ pageUrl: { hostContains: 'odysee.com' } }),
-          new chrome.declarativeContent.PageStateMatcher({ pageUrl: { hostContains: 'pilled.net' } })
+          new chrome.declarativeContent.PageStateMatcher({ pageUrl: { hostContains: 'rumble.com' } })
         ],
         actions: [new chrome.declarativeContent.ShowAction()]
       }

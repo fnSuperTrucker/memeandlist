@@ -1,6 +1,6 @@
 function createLinkElement(url, clickedLinks, isImage = false, isVideo = false) {
   const li = document.createElement('li');
-  li.dataset.url = url; // Store the URL in the <li> for comparison in updateList
+  li.dataset.url = url;
 
   if (isImage) {
     const a = document.createElement('a');
@@ -38,7 +38,7 @@ function createLinkElement(url, clickedLinks, isImage = false, isVideo = false) 
     const video = document.createElement('video');
     video.src = url;
     video.className = 'preview';
-    video.preload = 'none'; // Delay metadata load until visible
+    video.preload = 'none';
     video.autoplay = false;
     video.muted = true;
     video.controls = false;
@@ -46,32 +46,27 @@ function createLinkElement(url, clickedLinks, isImage = false, isVideo = false) 
     if (clickedLinks.includes(url)) video.style.opacity = '0.5';
     container.appendChild(video);
 
-    // Use IntersectionObserver to load metadata only when the video is visible
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
-        video.preload = 'metadata'; // Load metadata when visible
+        video.preload = 'metadata';
         video.onloadedmetadata = () => {
-          video.currentTime = 1; // Seek to 1 second to show a non-dark frame
+          video.currentTime = 1;
         };
         video.onerror = () => {
-          video.style.backgroundColor = '#000'; // Black background if load fails
+          video.style.backgroundColor = '#000';
         };
         observer.disconnect();
       }
     });
     observer.observe(video);
 
-    // Play the video on hover
     container.onmouseenter = () => {
-      video.play().catch(() => {
-        // If play fails (e.g., due to browser policies), do nothing
-      });
+      video.play().catch(() => {});
     };
 
-    // Pause the video when not hovering
     container.onmouseleave = () => {
       video.pause();
-      video.currentTime = 1; // Reset to 1 second to show the static frame
+      video.currentTime = 1;
     };
 
     a.appendChild(container);
@@ -96,10 +91,13 @@ function createLinkElement(url, clickedLinks, isImage = false, isVideo = false) 
 }
 
 function updateList() {
+  console.log('Updating links list...');
   chrome.storage.local.get({
     youtubeLinks: [], shortsLinks: [], twitterLinks: [],
     imageLinks: [], videoLinks: [], otherLinks: [], clickedLinks: []
   }, data => {
+    console.log('Retrieved from storage:', data);
+
     const youtubeList = document.getElementById('youtubeList');
     const shortsList = document.getElementById('shortsList');
     const twitterList = document.getElementById('twitterList');
@@ -109,12 +107,10 @@ function updateList() {
 
     const clickedLinks = data.clickedLinks || [];
 
-    // Helper function to update a list without causing flashes
     const updateListSection = (listElement, links, isImage = false, isVideo = false) => {
       const currentUrls = Array.from(listElement.children).map(li => li.dataset.url);
       const newUrls = links.slice().reverse();
 
-      // If the URLs haven't changed, update opacity for clicked links without re-rendering
       if (JSON.stringify(currentUrls) === JSON.stringify(newUrls)) {
         listElement.querySelectorAll('li').forEach(li => {
           const url = li.dataset.url;
@@ -132,14 +128,13 @@ function updateList() {
         return;
       }
 
-      // If the URLs have changed, re-render the list
       listElement.innerHTML = '';
-      // Remove the "No links found" message by not adding anything when links.length === 0
       if (links.length > 0) {
         links.reverse().forEach(url => {
           listElement.appendChild(createLinkElement(url, clickedLinks, isImage, isVideo));
         });
       }
+      console.log(`Updated ${listElement.id} with ${links.length} links`);
     };
 
     updateListSection(youtubeList, data.youtubeLinks);
@@ -148,14 +143,6 @@ function updateList() {
     updateListSection(imageList, data.imageLinks, true);
     updateListSection(videoList, data.videoLinks, false, true);
     updateListSection(otherList, data.otherLinks);
-
-    // Store the current data to compare in the next update
-    youtubeList.dataset.links = JSON.stringify(data.youtubeLinks);
-    shortsList.dataset.links = JSON.stringify(data.shortsLinks);
-    twitterList.dataset.links = JSON.stringify(data.twitterLinks);
-    imageList.dataset.links = JSON.stringify(data.imageLinks);
-    videoList.dataset.links = JSON.stringify(data.videoLinks);
-    otherList.dataset.links = JSON.stringify(data.otherLinks);
   });
 }
 
@@ -167,6 +154,9 @@ document.getElementById('clearButton').addEventListener('click', () => {
     chrome.storage.local.set({
       youtubeLinks: [], shortsLinks: [], twitterLinks: [],
       imageLinks: [], videoLinks: [], otherLinks: [], clickedLinks: []
-    }, updateList);
+    }, () => {
+      console.log('Storage cleared');
+      updateList();
+    });
   }
 });
