@@ -51,6 +51,11 @@ function scrollToBottom() {
 }
 
 function createImagePreview(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank'; // Opens in a new tab
+  a.style.display = 'block'; // Ensures the link takes up the full space
+
   const img = document.createElement('img');
   img.src = url;
   img.style.maxWidth = '300px';
@@ -69,10 +74,16 @@ function createImagePreview(url) {
     scrollToBottom();
   };
   
-  return img;
+  a.appendChild(img); // Wrap the image in the clickable link
+  return a; // Return the <a> element instead of just the <img>
 }
 
 function createVideoPreview(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank'; // Opens in a new tab
+  a.style.display = 'block'; // Ensures the link takes up the full space
+
   const video = document.createElement('video');
   video.src = url;
   video.style.maxWidth = '300px';
@@ -94,7 +105,8 @@ function createVideoPreview(url) {
     scrollToBottom();
   };
   
-  return video;
+  a.appendChild(video); // Wrap the video in the clickable link
+  return a; // Return the <a> element instead of just the <video>
 }
 
 let isActive = false;
