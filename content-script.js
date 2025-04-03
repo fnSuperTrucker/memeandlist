@@ -1,8 +1,8 @@
 console.log('Chat Links and Previews starting...');
 
 // Regex patterns for link detection
-const youtubeRegex = /https?:\/\/(?:[\w-]+\.)?youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/([\w-]{11})/i;
-const shortsRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{11})/i;
+const youtubeRegex = /https?:\/\/(?:[\w-]+\.)?youtube\.com\/(?:watch\?v=|embed\/|v\/|live\/|shorts\/)?([\w-]{11})(?:\?.*)?|youtu\.be\/([\w-]{11})(?:\?.*)?|https?:\/\/(?:[\w-]+\.)?youtube\.com\/(?:@[\w-]+|channel\/[\w-]{24}|playlist\?list=PL[\w-]{32})/i;
+const shortsRegex = /https?:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{11})(?:\?.*)?/i;
 const twitterRegex = /https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[\w-]+\/status\/\d+/i;
 const urlRegex = /https?:\/\/[^\s]+/gi;
 
@@ -35,6 +35,27 @@ function isStaticPageLink(url) {
   return isStatic;
 }
 
+function isAllowedSite(url) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['allowedSites', 'whitelistEnabled'], (data) => {
+      const allowedSites = data.allowedSites || [];
+      const whitelistEnabled = data.whitelistEnabled || false;
+
+      if (!whitelistEnabled) {
+        console.log(`Whitelist is off, allowing preview for ${url}`);
+        resolve(true);
+      } else if (allowedSites.length === 0) {
+        console.log(`Whitelist is on but empty, blocking preview for ${url}`);
+        resolve(false);
+      } else {
+        const inWhitelist = allowedSites.some(site => url.toLowerCase().includes(site.toLowerCase()));
+        console.log(`Whitelist check for ${url}: ${inWhitelist ? 'allowed' : 'blocked'} (Sites: ${allowedSites.join(', ')})`);
+        resolve(inWhitelist);
+      }
+    });
+  });
+}
+
 function scrollToBottom() {
   setTimeout(() => {
     const chatContainer = document.getElementById('chat-history-list');
@@ -53,8 +74,8 @@ function scrollToBottom() {
 function createImagePreview(url) {
   const a = document.createElement('a');
   a.href = url;
-  a.target = '_blank'; // Opens in a new tab
-  a.style.display = 'block'; // Ensures the link takes up the full space
+  a.target = '_blank';
+  a.style.display = 'block';
 
   const img = document.createElement('img');
   img.src = url;
@@ -74,15 +95,15 @@ function createImagePreview(url) {
     scrollToBottom();
   };
   
-  a.appendChild(img); // Wrap the image in the clickable link
-  return a; // Return the <a> element instead of just the <img>
+  a.appendChild(img);
+  return a;
 }
 
 function createVideoPreview(url) {
   const a = document.createElement('a');
   a.href = url;
-  a.target = '_blank'; // Opens in a new tab
-  a.style.display = 'block'; // Ensures the link takes up the full space
+  a.target = '_blank';
+  a.style.display = 'block';
 
   const video = document.createElement('video');
   video.src = url;
@@ -105,8 +126,8 @@ function createVideoPreview(url) {
     scrollToBottom();
   };
   
-  a.appendChild(video); // Wrap the video in the clickable link
-  return a; // Return the <a> element instead of just the <video>
+  a.appendChild(video);
+  return a;
 }
 
 let isActive = false;
@@ -215,15 +236,27 @@ function watchChat() {
             if (isUserProfile(url) || isStaticPageLink(url)) return;
 
             if (isImageUrl(url) && !span.querySelector('img')) {
-              const preview = createImagePreview(url);
-              console.log('Appending image preview to chat:', url);
-              span.appendChild(preview);
-              imageLinks.push(url);
+              imageLinks.push(url); // Store immediately
+              isAllowedSite(url).then(isAllowed => {
+                if (isAllowed) {
+                  const preview = createImagePreview(url);
+                  console.log('Appending image preview to chat:', url);
+                  span.appendChild(preview);
+                } else {
+                  console.log(`Image preview blocked by whitelist: ${url}`);
+                }
+              });
             } else if (isVideoUrl(url) && !span.querySelector('video')) {
-              const preview = createVideoPreview(url);
-              console.log('Appending video preview to chat:', url);
-              span.appendChild(preview);
-              videoLinks.push(url);
+              videoLinks.push(url); // Store immediately
+              isAllowedSite(url).then(isAllowed => {
+                if (isAllowed) {
+                  const preview = createVideoPreview(url);
+                  console.log('Appending video preview to chat:', url);
+                  span.appendChild(preview);
+                } else {
+                  console.log(`Video preview blocked by whitelist: ${url}`);
+                }
+              });
             } else {
               categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
             }
@@ -249,15 +282,27 @@ function watchChat() {
           }
 
           if (isImageUrl(url)) {
-            const preview = createImagePreview(url);
-            console.log('Replacing link with image preview:', url);
-            link.replaceWith(preview);
-            imageLinks.push(url);
+            imageLinks.push(url); // Store immediately
+            isAllowedSite(url).then(isAllowed => {
+              if (isAllowed) {
+                const preview = createImagePreview(url);
+                console.log('Replacing link with image preview:', url);
+                link.replaceWith(preview);
+              } else {
+                console.log(`Image preview blocked by whitelist: ${url}`);
+              }
+            });
           } else if (isVideoUrl(url)) {
-            const preview = createVideoPreview(url);
-            console.log('Replacing link with video preview:', url);
-            link.replaceWith(preview);
-            videoLinks.push(url);
+            videoLinks.push(url); // Store immediately
+            isAllowedSite(url).then(isAllowed => {
+              if (isAllowed) {
+                const preview = createVideoPreview(url);
+                console.log('Replacing link with video preview:', url);
+                link.replaceWith(preview);
+              } else {
+                console.log(`Video preview blocked by whitelist: ${url}`);
+              }
+            });
           } else {
             categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
           }
@@ -304,15 +349,27 @@ function processInitialChat() {
       if (isUserProfile(url) || isStaticPageLink(url)) return;
 
       if (isImageUrl(url) && !span.querySelector('img')) {
-        const preview = createImagePreview(url);
-        console.log('Appending image preview to chat (initial):', url);
-        span.appendChild(preview);
-        imageLinks.push(url);
+        imageLinks.push(url); // Store immediately
+        isAllowedSite(url).then(isAllowed => {
+          if (isAllowed) {
+            const preview = createImagePreview(url);
+            console.log('Appending image preview to chat (initial):', url);
+            span.appendChild(preview);
+          } else {
+            console.log(`Image preview blocked by whitelist (initial): ${url}`);
+          }
+        });
       } else if (isVideoUrl(url) && !span.querySelector('video')) {
-        const preview = createVideoPreview(url);
-        console.log('Appending video preview to chat (initial):', url);
-        span.appendChild(preview);
-        videoLinks.push(url);
+        videoLinks.push(url); // Store immediately
+        isAllowedSite(url).then(isAllowed => {
+          if (isAllowed) {
+            const preview = createVideoPreview(url);
+            console.log('Appending video preview to chat (initial):', url);
+            span.appendChild(preview);
+          } else {
+            console.log(`Video preview blocked by whitelist (initial): ${url}`);
+          }
+        });
       } else {
         categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks, videoLinks, otherLinks);
       }
@@ -345,9 +402,14 @@ function categorizeLink(url, youtubeLinks, shortsLinks, twitterLinks, imageLinks
   } else if (isVideoUrl(url) && !videoLinks.includes(url)) {
     videoLinks.push(url);
     console.log(`Categorized as Video: ${url}`);
-  } else if (!otherLinks.includes(url)) {
-    otherLinks.push(url);
-    console.log(`Categorized as Other: ${url}`);
+  } else {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      console.log(`YouTube-like URL not matched by regex: ${url}`);
+    }
+    if (!otherLinks.includes(url)) {
+      otherLinks.push(url);
+      console.log(`Categorized as Other: ${url}`);
+    }
   }
 }
 
@@ -367,3 +429,10 @@ setTimeout(() => {
   initialLoadComplete = true;
   processInitialChat();
 }, 2000);
+
+// Initialize whitelist with default value
+chrome.storage.local.get('whitelistEnabled', (data) => {
+  if (typeof data.whitelistEnabled === 'undefined') {
+    chrome.storage.local.set({ whitelistEnabled: false });
+  }
+});

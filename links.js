@@ -94,7 +94,8 @@ function updateList() {
   console.log('Updating links list...');
   chrome.storage.local.get({
     youtubeLinks: [], shortsLinks: [], twitterLinks: [],
-    imageLinks: [], videoLinks: [], otherLinks: [], clickedLinks: []
+    imageLinks: [], videoLinks: [], otherLinks: [], 
+    clickedLinks: [], allowedSites: [], whitelistEnabled: false
   }, data => {
     console.log('Retrieved from storage:', data);
 
@@ -104,6 +105,8 @@ function updateList() {
     const imageList = document.getElementById('imageList');
     const videoList = document.getElementById('videoList');
     const otherList = document.getElementById('otherList');
+    const whitelist = document.getElementById('whitelist');
+    const toggleButton = document.getElementById('toggleWhitelist');
 
     const clickedLinks = data.clickedLinks || [];
 
@@ -143,6 +146,28 @@ function updateList() {
     updateListSection(imageList, data.imageLinks, true);
     updateListSection(videoList, data.videoLinks, false, true);
     updateListSection(otherList, data.otherLinks);
+
+    // Update whitelist
+    const currentSites = Array.from(whitelist.children).map(li => li.dataset.site);
+    if (JSON.stringify(currentSites) !== JSON.stringify(data.allowedSites)) {
+      whitelist.innerHTML = '';
+      data.allowedSites.forEach(site => {
+        const li = document.createElement('li');
+        li.dataset.site = site;
+        li.textContent = site;
+        const removeButton = document.createElement('button');
+        removeButton.textContent = 'Remove';
+        removeButton.onclick = () => {
+          const newSites = data.allowedSites.filter(s => s !== site);
+          chrome.storage.local.set({ allowedSites: newSites }, updateList);
+        };
+        li.appendChild(removeButton);
+        whitelist.appendChild(li);
+      });
+    }
+
+    // Update toggle button text
+    toggleButton.textContent = `Toggle Whitelist (${data.whitelistEnabled ? 'On' : 'Off'})`;
   });
 }
 
@@ -157,6 +182,33 @@ document.getElementById('clearButton').addEventListener('click', () => {
     }, () => {
       console.log('Storage cleared');
       updateList();
+    });
+  }
+});
+
+document.getElementById('toggleWhitelist').addEventListener('click', () => {
+  chrome.storage.local.get('whitelistEnabled', data => {
+    const newState = !data.whitelistEnabled;
+    chrome.storage.local.set({ whitelistEnabled: newState }, () => {
+      console.log(`Whitelist toggled ${newState ? 'on' : 'off'}`);
+      updateList();
+    });
+  });
+});
+
+document.getElementById('addSiteButton').addEventListener('click', () => {
+  const input = document.getElementById('addSiteInput');
+  const site = input.value.trim();
+  if (site) {
+    chrome.storage.local.get('allowedSites', data => {
+      const sites = data.allowedSites || [];
+      if (!sites.includes(site)) {
+        sites.push(site);
+        chrome.storage.local.set({ allowedSites: sites }, () => {
+          input.value = '';
+          updateList();
+        });
+      }
     });
   }
 });

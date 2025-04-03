@@ -10,7 +10,7 @@
       background-color: #121212;
       color: #ffffff;
       box-sizing: border-box;
-      width: 1200px;
+      width: 1400px;
       overflow-y: auto;
     }
     body {
@@ -93,30 +93,60 @@
       list-style-type: none;
       padding-left: 0;
     }
-    #clearButton {
-      background-color: #808080; /* Gray */
-      color: #ffffff; /* White text for contrast */
+    #clearButton, #toggleWhitelist {
+      background-color: #808080;
+      color: #ffffff;
       border: none;
-      padding: 6px 12px; /* Smaller padding */
-      border-radius: 2px; /* Minimal rounding */
+      padding: 6px 12px;
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 12px; /* Smaller font */
-      margin-bottom: 15px;
-      width: auto; /* Prevent stretching */
-      display: inline-block; /* Compact button shape */
+      font-size: 12px;
+      width: auto;
       text-align: center;
     }
-    #clearButton:hover {
-      background-color: #666666; /* Darker gray on hover */
+    #clearButton:hover, #toggleWhitelist:hover {
+      background-color: #666666;
     }
     .button-container {
-      text-align: center; /* Center the button */
+      text-align: center;
+      margin-bottom: 15px;
+      position: relative;
+    }
+    #toggleWhitelist {
+      position: absolute;
+      right: 5px; /* Aligns with the right edge of the whitelist column */
+      top: 0;
+    }
+    #whitelistColumn ul {
+      padding-left: 10px;
+    }
+    #whitelistColumn li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #whitelistColumn button {
+      background-color: #ff4444;
+      padding: 2px 6px;
+      font-size: 10px;
+    }
+    #whitelistColumn button:hover {
+      background-color: #cc0000;
+    }
+    #addSiteInput {
+      width: 70%;
+      margin-bottom: 10px;
+    }
+    #addSiteButton {
+      width: 25%;
+      margin-left: 5px;
     }
   </style>
 </head>
 <body>
   <div class="button-container">
     <button id="clearButton">Clear All Links</button>
+    <button id="toggleWhitelist">Toggle Whitelist (Off)</button>
   </div>
   <div class="container">
     <div class="column">
@@ -142,6 +172,12 @@
     <div class="column">
       <h3>Other Links</h3>
       <ul id="otherList"></ul>
+    </div>
+    <div class="column" id="whitelistColumn">
+      <h3>Whitelist</h3>
+      <input type="text" id="addSiteInput" placeholder="Add site URL">
+      <button id="addSiteButton">Add</button>
+      <ul id="whitelist"></ul>
     </div>
   </div>
   <script src="links.js"></script>
